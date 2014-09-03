@@ -1,0 +1,54 @@
+#!/usr/bin/python
+import argparse, json, subprocess, datetime
+from datetime import datetime, date, time, timedelta
+
+OK = 0
+WARNING = 1
+CRITICAL = 2
+
+def main():
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-d", "--dbname", help="RDS DB name", required=True)
+        parser.add_argument('-w', '--warning', help='Warning if lag is great than this many seconds', type=int, required=True)
+        parser.add_argument('-c', '--critical', help='Critical if lag is great than this many seconds', type=int, required=True)
+        parser.add_argument("-r", "--region", help="AWS Region - default is us-west-1", required=False, default="us-west-1")
+        args = parser.parse_args()
+
+	starttime = datetime.now()-timedelta(minutes=1)
+	endtime = datetime.now()
+	cmd = "aws --region=%s cloudwatch get-metric-statistics --namespace 'AWS/RDS' --metric-name ReplicaLag --dimensions Name=DBInstanceIdentifier,Value=%s --start-time %s --end-time %s --period 60 --statistics SampleCount Average Sum Minimum Maximum" % ( args.region, args.dbname, starttime.isoformat() , endtime.isoformat() ) 
+
+        try:
+		rds_data_raw = subprocess.check_output(cmd, shell=True)
+        except:
+                print "CRITICAL Unable to fetch RDS data"
+                exit(CRITICAL)
+        try:
+		rds_data = json.loads(rds_data_raw)
+        except:
+                print "CRITICAL Unable to parse RDS data JSON"
+                exit(CRITICAL)
+
+        try:
+		if len(rds_data['Datapoints'])<1:
+			print "CRITICAL: unable to fetch cloudwatch metrics for %s" % args.dbname
+			exit(CRITICAL)
+
+		max_lag = float(rds_data['Datapoints'][-1]['Maximum'])
+        except:
+                print "CRITICAL Unable to analize RDS data"
+                exit(CRITICAL)
+
+	if max_lag > args.critical:
+		print "CRITICAL: DB replication lag is %d sec" % max_lag
+		exit(CRITICAL)
+	elif max_lag > args.warning:
+		print "WARNING: DB replication lag is %d sec" % max_lag
+		exit(WARNING)
+
+	print "OK: DB replication lag is %d sec" % max_lag
+	exit(OK)
+
+if __name__ == "__main__":
+    main()
+
