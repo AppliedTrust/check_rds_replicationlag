@@ -2,7 +2,7 @@ check_rds_replicationlag
 ========================
 
 Nagios check for AWS RDS MySQL slave replication lag
-
+```
 usage: check_rds_replicationlag [-h] -d DBNAME -w WARNING -c CRITICAL [-r REGION]
 
 optional arguments:
@@ -15,3 +15,4 @@ optional arguments:
                         Critical if lag is great than this many seconds
   -r REGION, --region REGION
                         AWS Region - default is us-west-1
+```
